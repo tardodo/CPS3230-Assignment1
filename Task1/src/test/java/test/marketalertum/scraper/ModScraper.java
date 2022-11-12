@@ -1,6 +1,7 @@
-package com.screenscraper.components;
+package test.marketalertum.scraper;
 
 import com.google.gson.Gson;
+import com.screenscraper.components.TechAlert;
 import com.screenscraper.components.pageobjects.ECommerceSite;
 import com.screenscraper.components.pageobjects.Product;
 import org.openqa.selenium.WebDriver;
@@ -12,22 +13,26 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Scraper {
+public class ModScraper {
 
     public WebDriver driver;
     public ECommerceSite website;
     public List<Product> finalProductList;
 
-    public Scraper(){
+    int amountOfProducts;
+
+    public ModScraper(){
         driver =  null;
         website = null;
         finalProductList = new ArrayList<>();
+        amountOfProducts = 0;
     }
-    public Scraper(WebDriver newDriver, ECommerceSite site){
+    public ModScraper(WebDriver newDriver, ECommerceSite site){
         driver = newDriver;
         website = site;
         site.setDriver(newDriver);
         finalProductList = new ArrayList<>();
+        amountOfProducts = 0;
     }
 
     public void setDriver(WebDriver newDriver){
@@ -54,12 +59,14 @@ public class Scraper {
         return null;
     }
 
-    public void retrieveRequiredProducts(){
+    public void retrieveRequiredProducts(int amount){
         if(driver != null && website != null) {
             List<Product> products = website.getProducts();
 
-            if(products.size() >= 5)
-                finalProductList = products.subList(0, 5);
+            if(products.size() >= amount) {
+                finalProductList = products.subList(0, amount);
+                amountOfProducts = amount;
+            }
         }
     }
 
@@ -67,13 +74,13 @@ public class Scraper {
         driver.quit();
     }
 
-    public List<HttpResponse<String>> uploadToAPI(HttpClient newClient) throws Exception{
+    public List<HttpResponse<String>> uploadToAPI(int alertType) throws Exception{
         Gson gson = new Gson();
         List<HttpResponse<String>> responses = new ArrayList<>();
 
-        if(finalProductList.size() == 5) {
+        if(finalProductList.size() == amountOfProducts) {
             for (Product prod : finalProductList) {
-                TechAlert alert = new TechAlert(prod);
+                GeneralAlert alert = new GeneralAlert(prod, alertType);
                 String jsonProduct = gson.toJson(alert);
 
                 HttpRequest postReq = HttpRequest.newBuilder()
@@ -83,7 +90,7 @@ public class Scraper {
                         .build();
 
                 HttpClient client = HttpClient.newHttpClient();
-                HttpResponse<String> resp = newClient.send(postReq, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> resp = client.send(postReq, HttpResponse.BodyHandlers.ofString());
                 System.out.println(resp);
                 responses.add(resp);
             }
@@ -91,6 +98,23 @@ public class Scraper {
         }else{
             return null;
         }
+    }
+
+    public HttpResponse<String> deleteProducts() throws Exception{
+        Gson gson = new Gson();
+        List<HttpResponse<String>> responses = new ArrayList<>();
+
+        HttpRequest postReq = HttpRequest.newBuilder()
+                .uri(new URI("https://api.marketalertum.com/Alert?userId=c483fe67-d39d-429a-9afa-273d26d2fe35"))
+                .header("content-type", "application/json")
+                .DELETE()
+                .build();
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> resp = client.send(postReq, HttpResponse.BodyHandlers.ofString());
+        System.out.println(resp);
+
+        return resp;
     }
 
 
